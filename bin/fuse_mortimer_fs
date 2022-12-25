@@ -1,0 +1,6 @@
+#!/usr/bin/env ruby
+
+require 'mortimer_fs'
+require 'mortimer_fs/fuse'
+
+MortimerFs::Fuse.main(ARGV)

@@ -1,0 +1,33 @@
+#!/usr/bin/env ruby
+
+require 'mortimer_fs'
+
+#mke2fs [ -b block-size ] [ -g blocks-per-group ] [ -G number-of-groups ] [ -O feature[,...] ] [ -q ] [ -E extended-options ] [ -v ] [ -L volume-label ] [ -U UUID ] [ -V ] device [ blocks-count ]
+
+cluster_size = 512
+root_inode_number = 1
+prefered_inode_fourcc = MortimerFs::Inode::ChainedInode::FOURCC
+prefered_directory_fourcc = MortimerFs::Directory::FixedEntryDirectory::FOURCC
+volume_uuid = "abcd1234abcd1234"
+volume_name = "MortimerVolume"
+superblock_buffer = [MortimerFs::Volume::SUPERBLOCK_FOURCC, 0, cluster_size, 0, root_inode_number, 0, 0, 0, prefered_inode_fourcc, prefered_directory_fourcc, 0, 0, volume_uuid, volume_name].pack(MortimerFs::Volume::SUPERBLOCK_PACK_FORMAT)
+superblock_buffer << [root_inode_number].pack("L")
+
+cluster_count = 1024
+device = File.open("data.bin", "wb")
+device.sync = true
+bytes = Array.new(cluster_size, 0)
+
+buffer = bytes.pack("C*")
+buffer[0, superblock_buffer.size] = superblock_buffer
+device.syswrite(buffer)
+
+buffer = bytes.pack("C*")
+(cluster_count-1).times { device.syswrite(buffer) }
+device.close
+
+device = File.open("data.bin", "r+b")
+device.sync = true
+volume = MortimerFs::Volume.new(device)
+now_timestamp = Time.now.to_i
+MortimerFs::Inode.make(volume, {type: :directory, mode: 0777, uid: 501, gid: 20, size: 0, ctime: now_timestamp, mtime: now_timestamp, atime: now_timestamp})
