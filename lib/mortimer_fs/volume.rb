@@ -6,7 +6,6 @@ module MortimerFs
     def initialize(device)
       @device = device
       init_from_superblock
-      @total_cluster_count = device.stat.size / @cluster_size
     end
 
     def read(cluster_count, cluster_number)
@@ -42,13 +41,13 @@ module MortimerFs
 
     SUPERBLOCK_FOURCC = "MoFS"
     SUPERBLOCK_SIZE = 256
-    SUPERBLOCK_PACK_FORMAT = "a4LLLLLLLa4a4LLa16Z192"
+    SUPERBLOCK_PACK_FORMAT = "a4La4a4LLLLLLLLa16Z192"
 
     def init_from_superblock
       @device.sysseek(0)
-      @superblock_buffer = @device.sysread(512)
+      @superblock_buffer = @device.sysread(512) # TODO: Ask the device for the block_size to respect its block behaviour
 
-      superblock_fourcc, _, @cluster_size, _, @root_inode_number, _, _, _, @prefered_inode_fourcc, @prefered_directory_fourcc, _, _, volume_uuid, volume_name = @superblock_buffer.unpack(SUPERBLOCK_PACK_FORMAT)
+      superblock_fourcc, _, @prefered_inode_fourcc, @prefered_directory_fourcc, @cluster_size, _, @total_cluster_count, _, @root_inode_number, _, _, _, volume_uuid, volume_name = @superblock_buffer.unpack(SUPERBLOCK_PACK_FORMAT)
       raise Errno::EILSEQ.new(superblock_fourcc.dump) if superblock_fourcc != SUPERBLOCK_FOURCC
 
       # Here until we have a real allocation scheme
