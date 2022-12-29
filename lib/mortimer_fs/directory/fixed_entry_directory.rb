@@ -3,7 +3,7 @@ module MortimerFs
     class FixedEntryDirectory < File
       include Enumerable
 
-      FOURCC = "MoDF"
+      FOURCC = "MoD0"
 
       DIR_ENTRY_SIZE = 256
       DIR_ENTRY_MAX_NAMESIZE = DIR_ENTRY_SIZE - 16
