@@ -2,32 +2,75 @@
 
 require 'mortimer_fs'
 
-#mke2fs [ -b block-size ] [ -g blocks-per-group ] [ -G number-of-groups ] [ -O feature[,...] ] [ -q ] [ -E extended-options ] [ -v ] [ -L volume-label ] [ -U UUID ] [ -V ] device [ blocks-count ]
+# Load micro-optparse from local copy. Thanx to https://github.com/florianpilz/micro-optparse
+require 'mortimer_fs/micro-optparse'
 
-cluster_size = 512
+# Parse and check command line options
+options = Parser.new do |p|
+  p.banner = <<~EOS
+    Prepare the passed device to be used with the MortimerFileSystem
+    Usage: #{$0} [options] <device> [blocks-count]"
+    blocks-count is the number of blocks on the device. If omitted the device will be probed for its size.
+    EOS
+  p.version = "mkmortimerfs #{MortimerFs::VERSION}"
+  p.option :block_size, ["Block size in bytes (cluster size in mortimerfs jargon)", "Any power of 2 between 512 and 16777216"], default: 512, value_satisfies: ->(value) { (512...16777216).cover?(value) && value.to_s(2).count('1') == 1 }
+  p.option :volume_label, "Specify the volume label", short: 'L', default: "", optional: true
+  p.option :UUID, "Specify the volume UUID", default: "", optional: true, value_matches: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  p.option :extended_options, [
+    "Set extended options for the filesystem as comma separated key=value pairs:",
+    "prefered_inode_fourcc=fourcc Default: #{MortimerFs::Inode::ChainedInode::FOURCC}",
+    "prefered_directory_fourcc=fourcc Default: #{MortimerFs::Directory::FixedEntryDirectory::FOURCC}",
+    ], short: 'E', default: "", optional: true
+  p.option :verbose, "Enable verbose output"
+  p.option :quiet, "Quiet execution"
+end.process!
+
+extended_options = options[:extended_options] ? (Hash[*options[:extended_options].split(/[,=]/)] rescue (abort "Bad syntax in extended options!")) : {}
+
+device_path = ARGV.shift
+blocks_count = ARGV.shift
+abort "No device given!" unless device_path
+
+# Setup FileSystem values
 root_inode_number = 1
-prefered_inode_fourcc = MortimerFs::Inode::ChainedInode::FOURCC
-prefered_directory_fourcc = MortimerFs::Directory::FixedEntryDirectory::FOURCC
-volume_uuid = "abcd1234abcd1234"
-volume_name = "MortimerVolume"
-superblock_buffer = [MortimerFs::Volume::SUPERBLOCK_FOURCC, 0, cluster_size, 0, root_inode_number, 0, 0, 0, prefered_inode_fourcc, prefered_directory_fourcc, 0, 0, volume_uuid, volume_name].pack(MortimerFs::Volume::SUPERBLOCK_PACK_FORMAT)
+cluster_count = blocks_count.to_i if blocks_count
+cluster_size = options[:block_size]
+prefered_inode_fourcc = extended_options.fetch('prefered_inode_fourcc', MortimerFs::Inode::ChainedInode::FOURCC)
+prefered_directory_fourcc = extended_options.fetch('prefered_directory_fourcc', MortimerFs::Directory::FixedEntryDirectory::FOURCC)
+volume_uuid = (options.fetch(:UUID) { require 'securerandom'; SecureRandom.uuid }).split('-').pack("H8H4H4H4H12")
+volume_name = options.fetch(:volume_label, "MortimerVolume")
+
+# Create virtual device with a plain file
+unless File.exist?(device_path)
+  File.open(device_path, "wb") {}
+end
+
+# Check if device capabilities are ok with the options
+device_stat = File::Stat.new(device_path)
+cluster_count ||= device_stat.blocks
+abort "Too few blocks count: #{cluster_count}" if cluster_count < 16
+if device_stat.blockdev?
+  abort "Device block size (#{device_stat.blksize}) can't be greater than the chosen block size (#{cluster_size})" if cluster_size < device_stat.blksize
+  abort "Chosen blocks count (#{cluster_count}) can't exceed device blocks count (#{device_stat.blocks})" if cluster_count > device_stat.blocks
+end
+
+# Write the superblock to the device
+superblock_buffer = [MortimerFs::Volume::SUPERBLOCK_FOURCC, 0, prefered_inode_fourcc, prefered_directory_fourcc, cluster_size, 0, cluster_count, 0, root_inode_number, 0, 0, 0, volume_uuid, volume_name].pack(MortimerFs::Volume::SUPERBLOCK_PACK_FORMAT)
 superblock_buffer << [root_inode_number].pack("L")
 
-cluster_count = 1024
-device = File.open("data.bin", "wb")
+device = File.open(device_path, "wb")
 device.sync = true
 bytes = Array.new(cluster_size, 0)
-
 buffer = bytes.pack("C*")
 buffer[0, superblock_buffer.size] = superblock_buffer
 device.syswrite(buffer)
-
-buffer = bytes.pack("C*")
-(cluster_count-1).times { device.syswrite(buffer) }
+device.sysseek((cluster_count-1) * cluster_size)
+device.syswrite(buffer)
 device.close
 
-device = File.open("data.bin", "r+b")
+# Mount the device under a volume to create the root inode
+device = File.open(device_path, "r+b")
 device.sync = true
 volume = MortimerFs::Volume.new(device)
 now_timestamp = Time.now.to_i
-MortimerFs::Inode.make(volume, {type: :directory, mode: 0777, uid: 501, gid: 20, size: 0, ctime: now_timestamp, mtime: now_timestamp, atime: now_timestamp})
+MortimerFs::Inode.make(volume, {type: :directory, mode: 0755, uid: Process.euid, gid: Process.egid, size: 0, ctime: now_timestamp, mtime: now_timestamp, atime: now_timestamp})
