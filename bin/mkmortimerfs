@@ -18,8 +18,8 @@ options = Parser.new do |p|
   p.option :UUID, "Specify the volume UUID", default: "", optional: true, value_matches: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   p.option :extended_options, [
     "Set extended options for the filesystem as comma separated key=value pairs:",
-    "prefered_inode_fourcc=fourcc Default: #{MortimerFs::Inode::ChainedInode::FOURCC}",
-    "prefered_directory_fourcc=fourcc Default: #{MortimerFs::Directory::FixedEntryDirectory::FOURCC}",
+    "  preferred_inode_fourcc=fourcc Default: #{MortimerFs::Inode::ChainedInode::FOURCC}",
+    "  preferred_directory_fourcc=fourcc Default: #{MortimerFs::Directory::FixedEntryDirectory::FOURCC}",
     ], short: 'E', default: "", optional: true
   p.option :verbose, "Enable verbose output"
   p.option :quiet, "Quiet execution"

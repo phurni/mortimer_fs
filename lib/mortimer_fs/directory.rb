@@ -8,7 +8,7 @@ module MortimerFs
 
       def open(volume, inode, flags: File::RDONLY)
         fourcc = File.read(volume, inode, 4, 0)
-        fourcc = volume.prefered_directory_fourcc if fourcc.empty?
+        fourcc = volume.preferred_directory_fourcc if fourcc.empty?
 
         klass = @handlers[fourcc]
         raise Errno::EFTYPE.new(fourcc.dump) unless klass

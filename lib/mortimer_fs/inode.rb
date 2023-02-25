@@ -21,7 +21,7 @@ module MortimerFs
       end
 
       def make(volume, stat_hash)
-        fourcc = volume.prefered_inode_fourcc
+        fourcc = volume.preferred_inode_fourcc
         klass = @handlers[fourcc]
         raise Errno::EFTYPE.new(fourcc.dump) unless klass
 

@@ -1,7 +1,7 @@
 module MortimerFs
   class Volume
     attr_reader :cluster_size, :root_inode_number
-    attr_reader :prefered_inode_fourcc, :prefered_directory_fourcc
+    attr_reader :preferred_inode_fourcc, :preferred_directory_fourcc
 
     def initialize(device)
       @device = device
@@ -47,7 +47,7 @@ module MortimerFs
       @device.sysseek(0)
       @superblock_buffer = @device.sysread(512) # TODO: Ask the device for the block_size to respect its block behaviour
 
-      superblock_fourcc, _, @prefered_inode_fourcc, @prefered_directory_fourcc, @cluster_size, _, @total_cluster_count, _, @root_inode_number, _, _, _, volume_uuid, volume_name = @superblock_buffer.unpack(SUPERBLOCK_PACK_FORMAT)
+      superblock_fourcc, _, @preferred_inode_fourcc, @preferred_directory_fourcc, @cluster_size, _, @total_cluster_count, _, @root_inode_number, _, _, _, volume_uuid, volume_name = @superblock_buffer.unpack(SUPERBLOCK_PACK_FORMAT)
       raise Errno::EILSEQ.new(superblock_fourcc.dump) if superblock_fourcc != SUPERBLOCK_FOURCC
 
       # Here until we have a real allocation scheme
