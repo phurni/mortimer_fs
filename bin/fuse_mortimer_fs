@@ -3,4 +3,12 @@
 require 'mortimer_fs'
 require 'mortimer_fs/fuse'
 
+# Handle extensions
+ARGV.reject! do |arg|
+  if arg.start_with? '--ext='
+    arg.delete_prefix('--ext=').split(",").each {|item| require item }
+    true
+  end
+end
+
 MortimerFs::Fuse.main(ARGV)

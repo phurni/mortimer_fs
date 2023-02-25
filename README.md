@@ -25,3 +25,22 @@ gem 'mortimer_fs', git: 'https://github.com/phurni/mortimer_fs'
 ## Documentation
 
 You'll find exploration and implementation details in the `doc` directory.
+
+## Extend the FS
+
+Extensibility is baked in from the beginning.
+
+You may add new way of handling _inodes_, _directory layouts_ or _allocation schemes_.
+
+In order to do that, create a ruby project and add this gem in your Gemfile, then
+provide code for your own implemenation.
+
+For example, you made a new directory layout available in `my_dir_layout.rb`.
+
+Run the FS:
+
+    fuse_mortimer_fs --ext=./my_dir_layout.rb
+
+Format a volume:
+
+    mkmortimerfs --ext=./my_dir_layout.rb

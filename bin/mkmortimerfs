@@ -2,6 +2,14 @@
 
 require 'mortimer_fs'
 
+# Handle extensions
+ARGV.reject! do |arg|
+  if arg.start_with? '--ext='
+    arg.delete_prefix('--ext=').split(",").each {|item| require item }
+    true
+  end
+end
+
 # Load micro-optparse from local copy. Thanx to https://github.com/florianpilz/micro-optparse
 require 'mortimer_fs/micro-optparse'
 
