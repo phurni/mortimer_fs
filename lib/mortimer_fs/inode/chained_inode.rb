@@ -34,7 +34,7 @@ module MortimerFs
 
       # Returns an inode number, not an inode object
       def self.make(volume, stat_hash)
-        head_inode = volume.allocate(1).first
+        head_inode = volume.inode_allocator.allocate(1).first
 
         head_inode_content = Array.new(volume.cluster_size, 0).pack("c*")
         head_inode_content[0, INODE_HEAD_SIZE] = [FOURCC, 0, 0, FTYPE_VALUE_FOR[stat_hash[:type]], stat_hash[:mode], stat_hash[:uid], stat_hash[:gid], stat_hash[:size], stat_hash[:ctime], stat_hash[:mtime], stat_hash[:atime], 0].pack(INODE_HEAD_PACK_FORMAT)
@@ -119,7 +119,7 @@ module MortimerFs
         end
 
         # Allocate the missing data clusters
-        new_data_clusters = @volume.allocate(target_data_cluster_count - allocated_data_cluster_count)
+        new_data_clusters = @volume.data_allocator.allocate(target_data_cluster_count - allocated_data_cluster_count)
 
         # Fill to the max the current inode only if we already have an data cluster inode
         inode_last_cluster_index = extract_data_cluster_numbers(buffer).index(0)
@@ -134,7 +134,7 @@ module MortimerFs
         if stopped_inode_index < ending_inode_index
           # There are missing inodes
           # allocate the missing inode cluster count
-          new_inode_clusters = @volume.allocate(ending_inode_index - stopped_inode_index)
+          new_inode_clusters = @volume.inode_allocator.allocate(ending_inode_index - stopped_inode_index)
 
           # link the last inode with the next new one
           buffer[4..7] = [new_inode_clusters.first].pack("L")
