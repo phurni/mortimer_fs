@@ -40,11 +40,13 @@ blocks_count = ARGV.shift
 abort "No device given!" unless device_path
 
 # Setup FileSystem values
-root_inode_number = 1
+root_inode_number = 2
 cluster_count = blocks_count.to_i if blocks_count
 cluster_size = options[:block_size]
 prefered_inode_fourcc = extended_options.fetch('prefered_inode_fourcc', MortimerFs::Inode::ChainedInode::FOURCC)
 prefered_directory_fourcc = extended_options.fetch('prefered_directory_fourcc', MortimerFs::Directory::FixedEntryDirectory::FOURCC)
+inode_allocator_fourcc = extended_options.fetch('inode_allocator_fourcc', MortimerFs::Allocator::SingleBitmapAllocator::FOURCC)
+data_allocator_fourcc = extended_options.fetch('data_allocator_fourcc', MortimerFs::Allocator::SingleBitmapAllocator::FOURCC)
 volume_uuid = (options.fetch(:UUID) { require 'securerandom'; SecureRandom.uuid }).split('-').pack("H8H4H4H4H12")
 volume_name = options.fetch(:volume_label, "MortimerVolume")
 
@@ -62,18 +64,28 @@ if device_stat.blockdev?
   abort "Chosen blocks count (#{cluster_count}) can't exceed device blocks count (#{device_stat.blocks})" if cluster_count > device_stat.blocks
 end
 
-# Write the superblock to the device
-superblock_buffer = [MortimerFs::Volume::SUPERBLOCK_FOURCC, 0, prefered_inode_fourcc, prefered_directory_fourcc, cluster_size, 0, cluster_count, 0, root_inode_number, 0, 0, 0, volume_uuid, volume_name].pack(MortimerFs::Volume::SUPERBLOCK_PACK_FORMAT)
-superblock_buffer << [root_inode_number].pack("L")
+# Prepare the superblock
+superblock_buffer = [MortimerFs::Volume::SUPERBLOCK_FOURCC, 0, prefered_inode_fourcc, prefered_directory_fourcc, cluster_size, 0, cluster_count, 0, root_inode_number, 0, inode_allocator_fourcc, data_allocator_fourcc, volume_uuid, volume_name].pack(MortimerFs::Volume::SUPERBLOCK_PACK_FORMAT)
+bytes = Array.new(cluster_size, 0)
 
+# create the device
 device = File.open(device_path, "wb")
 device.sync = true
-bytes = Array.new(cluster_size, 0)
+
+# write the superblock at cluster 0
 buffer = bytes.pack("C*")
 buffer[0, superblock_buffer.size] = superblock_buffer
 device.syswrite(buffer)
+# write the superblock at cluster -1
 device.sysseek((cluster_count-1) * cluster_size)
 device.syswrite(buffer)
+
+# write the dummy bitmap block at cluster 1
+buffer = bytes.pack("C*")
+buffer[0, 4] = [root_inode_number].pack("L")
+device.sysseek(1 * cluster_size)
+device.syswrite(buffer)
+
 device.close
 
 # Mount the device under a volume to create the root inode
