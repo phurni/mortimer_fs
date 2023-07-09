@@ -6,11 +6,12 @@ module MortimerFs
         @handlers[fourcc] = klass
       end
 
-      def open(volume, inode, flags: File::RDONLY)
-        fourcc = File.read(volume, inode, 4, 0)
-        fourcc = volume.preferred_directory_fourcc if fourcc.empty?
+      def for(fourcc)
+        @handlers[fourcc] or raise Errno::EFTYPE.new(fourcc.dump)
+      end
 
-        klass = @handlers[fourcc]
+      def open(volume, inode, flags: File::RDONLY)
+        klass = @handlers[File.read(volume, inode, 4, 0)] || volume.directory_handler
         raise Errno::EFTYPE.new(fourcc.dump) unless klass
 
         dir = klass.new(volume, inode, flags: flags)
