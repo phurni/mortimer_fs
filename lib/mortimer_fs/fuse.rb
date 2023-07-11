@@ -37,7 +37,7 @@ module MortimerFs
     def mkdir(ctx, path, mode)
       Directory.open(@volume, path_to_inode(::File.dirname(path)), flags: File::WRONLY) do |dir|
         now_timestamp = Time.now.to_i
-        inode_number = Inode.make(@volume, {type: :directory, mode: mode, size: 0, uid: ctx.uid, gid: ctx.gid, ctime: now_timestamp, mtime: now_timestamp, atime: now_timestamp})
+        inode_number = @volume.inode_handler.make(@volume, {type: :directory, mode: mode, size: 0, uid: ctx.uid, gid: ctx.gid, ctime: now_timestamp, mtime: now_timestamp, atime: now_timestamp})
 
         dir.add(::File.basename(path), inode_number)
       end
@@ -46,7 +46,7 @@ module MortimerFs
     def mknod(ctx, path, mode, major, minor)
       Directory.open(@volume, path_to_inode(::File.dirname(path)), flags: File::WRONLY) do |dir|
         now_timestamp = Time.now.to_i
-        inode_number = Inode.make(@volume, {type: :file, mode: mode, size: 0, uid: ctx.uid, gid: ctx.gid, ctime: now_timestamp, mtime: now_timestamp, atime: now_timestamp})
+        inode_number = @volume.inode_handler.make(@volume, {type: :file, mode: mode, size: 0, uid: ctx.uid, gid: ctx.gid, ctime: now_timestamp, mtime: now_timestamp, atime: now_timestamp})
 
         dir.add(::File.basename(path), inode_number)
       end
@@ -141,7 +141,7 @@ module MortimerFs
     protected
 
     def path_to_inode(path)
-      inode = Inode.for(@volume, @volume.root_inode_number)
+      inode = Inode.from(@volume, @volume.root_inode_number)
       path.split('/').each do |segment|
         next if segment == ''
         inode = Directory.open(@volume, inode) {|dir| dir.find_inode_for(segment) }

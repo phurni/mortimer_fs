@@ -18,7 +18,7 @@ module MortimerFs
           offset += DIR_ENTRY_SIZE
           next if (entry_fields[2] & FLAG_DELETED) != 0
 
-          return Inode.for(@volume, entry_fields[1]) if entry_fields.last == name
+          return Inode.from(@volume, entry_fields[1]) if entry_fields.last == name
         end
         raise Errno::ENOENT.new
       end
@@ -30,7 +30,7 @@ module MortimerFs
           offset += DIR_ENTRY_SIZE
           next if (entry_fields[2] & FLAG_DELETED) != 0
 
-          yield [entry_fields.last, Inode.for(@volume, entry_fields[1])]
+          yield [entry_fields.last, Inode.from(@volume, entry_fields[1])]
         end
         self
       end

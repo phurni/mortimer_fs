@@ -6,7 +6,11 @@ module MortimerFs
         @handlers[fourcc] = klass
       end
 
-      def for(volume, inode)
+      def for(fourcc)
+        @handlers[fourcc] or raise Errno::EFTYPE.new(fourcc.dump)
+      end
+
+      def from(volume, inode)
         inode_content = volume.read(1, inode)
         fourcc = inode_content[0..3]
         klass = @handlers[fourcc]
@@ -18,14 +22,6 @@ module MortimerFs
         else
           handler
         end
-      end
-
-      def make(volume, stat_hash)
-        fourcc = volume.preferred_inode_fourcc
-        klass = @handlers[fourcc]
-        raise Errno::EFTYPE.new(fourcc.dump) unless klass
-
-        klass.make(volume, stat_hash)
       end
     end
   end
