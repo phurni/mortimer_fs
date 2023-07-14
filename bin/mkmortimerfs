@@ -93,4 +93,4 @@ device = File.open(device_path, "r+b")
 device.sync = true
 volume = MortimerFs::Volume.new(device)
 now_timestamp = Time.now.to_i
-volume.inode_handler.make(volume, {type: :directory, mode: 0755, uid: Process.euid, gid: Process.egid, size: 0, ctime: now_timestamp, mtime: now_timestamp, atime: now_timestamp})
+volume.inode_make({type: :directory, mode: 0755, uid: Process.euid, gid: Process.egid, size: 0, ctime: now_timestamp, mtime: now_timestamp, atime: now_timestamp})

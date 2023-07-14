@@ -4,7 +4,7 @@ module MortimerFs
 
     attr_reader :cluster_size, :root_inode_number, :total_cluster_count
     attr_reader :inode_allocator, :data_allocator
-    attr_reader :inode_handler, :directory_handler
+    attr_reader :directory_handler
 
     def initialize(device)
       @device = device
@@ -20,6 +20,16 @@ module MortimerFs
       raise Errno::EDOM.new if buffer.size % @cluster_size != 0
       @device.sysseek(cluster_number * @cluster_size)
       @device.syswrite(buffer)
+    end
+
+    def inode_make(stat_hash)
+      @inode_handler.make(self, stat_hash)
+    end
+
+    def inode_fetch(inode_number)
+      inode_content = read(1, inode_number)
+      fourcc = inode_content[0..3]
+      Inode.for(fourcc).new(self, inode_number, inode_content)
     end
 
     protected
