@@ -6,11 +6,8 @@ module MortimerFs
         @handlers[fourcc] = klass
       end
 
-      def for(volume, fourcc)
-        klass = @handlers[fourcc]
-        raise Errno::EFTYPE.new(fourcc.dump) unless klass
-
-        klass.for(volume)
+      def for(fourcc)
+        @handlers[fourcc] or raise Errno::EFTYPE.new(fourcc.dump)
       end
     end
   end

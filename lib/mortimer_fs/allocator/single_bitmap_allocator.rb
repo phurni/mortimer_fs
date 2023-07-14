@@ -3,12 +3,6 @@ module MortimerFs
     class SingleBitmapAllocator
       FOURCC = "MoAS"
 
-      def self.for(volume)
-        # Returns the same instance of the allocator when asking for the same volume instance
-        @instances ||= {}
-        @instances[volume] ||= new(volume)
-      end
-
       def initialize(volume)
         @volume = volume
         @total_cluster_count = volume.total_cluster_count

@@ -60,8 +60,14 @@ module MortimerFs
       superblock_fourcc, _, preferred_inode_fourcc, preferred_directory_fourcc, @cluster_size, _, @total_cluster_count, _, @root_inode_number, _, inode_allocator_fourcc, data_allocator_fourcc, volume_uuid, volume_name = @superblock_buffer.unpack(SUPERBLOCK_PACK_FORMAT)
       raise Errno::EILSEQ.new(superblock_fourcc.dump) if superblock_fourcc != SUPERBLOCK_FOURCC
 
-      @inode_allocator = Allocator.for(self, inode_allocator_fourcc)
-      @data_allocator = Allocator.for(self, data_allocator_fourcc)
+      inode_allocator_klass = Allocator.for(inode_allocator_fourcc)
+      data_allocator_klass = Allocator.for(data_allocator_fourcc)
+      if inode_allocator_klass == data_allocator_klass
+        @inode_allocator = @data_allocator = inode_allocator_klass.new(self)
+      else
+        @inode_allocator = inode_allocator_klass.new(self)
+        @data_allocator = data_allocator_klass.new(self)
+      end
 
       @inode_handler = Inode.for(preferred_inode_fourcc)
       @directory_handler = Directory.for(preferred_directory_fourcc)
