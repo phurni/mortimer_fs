@@ -4,7 +4,6 @@ module MortimerFs
 
     attr_reader :cluster_size, :root_inode_number, :total_cluster_count
     attr_reader :inode_allocator, :data_allocator
-    attr_reader :directory_handler
 
     def initialize(device)
       @device = device
@@ -30,6 +29,23 @@ module MortimerFs
       inode_content = read(1, inode_number)
       fourcc = inode_content[0..3]
       Inode.for(fourcc).new(self, inode_number, inode_content)
+    end
+
+    def directory_open(inode_number, flags: File::RDONLY)
+      inode = inode_fetch(inode_number)
+      fourcc = File.read(self, inode, 4, 0)
+      klass = fourcc.empty? ? @directory_handler : Directory.for(fourcc)
+
+      dir = klass.new(self, inode, flags: flags)
+      if block_given?
+        begin
+          yield dir
+        ensure
+          dir.close
+        end
+      else
+        dir
+      end
     end
 
     protected

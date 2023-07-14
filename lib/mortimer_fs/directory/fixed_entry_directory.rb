@@ -11,14 +11,14 @@ module MortimerFs
       
       FLAG_DELETED = 1
 
-      def find_inode_for(name)
+      def find_inode_number_for(name)
         offset = 0
         until (buffer = read(DIR_ENTRY_SIZE, offset)).empty?
           entry_fields = parse_dir_entry(buffer)
           offset += DIR_ENTRY_SIZE
           next if (entry_fields[2] & FLAG_DELETED) != 0
 
-          return @volume.inode_fetch(entry_fields[1]) if entry_fields.last == name
+          return entry_fields[1] if entry_fields.last == name
         end
         raise Errno::ENOENT.new
       end

@@ -24,18 +24,18 @@ module MortimerFs
     end
 
     def getattr(ctx, path)
-      inode = path_to_inode(path)
+      inode = @volume.inode_fetch(path_to_inode_number(path))
       RFuse::Stat.new(FTYPE_MORTIMER_TO_RFUSE[inode.type], inode.mode, inode.stat_hash)
     end
 
     def readdir(ctx, path, filler, offset, ffi)
-      Directory.open(@volume, path_to_inode(path)) do |dir|
+      @volume.directory_open(path_to_inode_number(path)) do |dir|
         dir.each {|name, inode| filler.push(name, RFuse::Stat.new(inode.mode, inode.mode, inode.stat_hash), 0) }
       end
     end
 
     def mkdir(ctx, path, mode)
-      Directory.open(@volume, path_to_inode(::File.dirname(path)), flags: File::WRONLY) do |dir|
+      @volume.directory_open(path_to_inode_number(::File.dirname(path)), flags: File::WRONLY) do |dir|
         now_timestamp = Time.now.to_i
         inode_number = @volume.inode_make({type: :directory, mode: mode, size: 0, uid: ctx.uid, gid: ctx.gid, ctime: now_timestamp, mtime: now_timestamp, atime: now_timestamp})
 
@@ -44,7 +44,7 @@ module MortimerFs
     end
 
     def mknod(ctx, path, mode, major, minor)
-      Directory.open(@volume, path_to_inode(::File.dirname(path)), flags: File::WRONLY) do |dir|
+      @volume.directory_open(path_to_inode_number(::File.dirname(path)), flags: File::WRONLY) do |dir|
         now_timestamp = Time.now.to_i
         inode_number = @volume.inode_make({type: :file, mode: mode, size: 0, uid: ctx.uid, gid: ctx.gid, ctime: now_timestamp, mtime: now_timestamp, atime: now_timestamp})
 
@@ -53,13 +53,13 @@ module MortimerFs
     end
 
     def rmdir(ctx, path)
-      Directory.open(@volume, path_to_inode(::File.dirname(path)), flags: File::RDWR) do |dir|
+      @volume.directory_open(path_to_inode_number(::File.dirname(path)), flags: File::RDWR) do |dir|
         dir.remove(::File.basename(path))
       end
     end
 
     def unlink(ctx, path)
-      Directory.open(@volume, path_to_inode(::File.dirname(path)), flags: File::RDWR) do |dir|
+      @volume.directory_open(path_to_inode_number(::File.dirname(path)), flags: File::RDWR) do |dir|
         dir.remove(::File.basename(path))
       end
     end
@@ -77,27 +77,27 @@ module MortimerFs
     #end
 
     def chmod(ctx, path, mode)
-      inode = path_to_inode(path)
+      inode = @volume.inode_fetch(path_to_inode_number(path))
       inode.mode = mode
       inode.write
     end
 
     def chown(ctx, path, uid, gid)
-      inode = path_to_inode(path)
+      inode = @volume.inode_fetch(path_to_inode_number(path))
       inode.uid = uid
       inode.gid = gid
       inode.write
     end
 
     def utime(ctx, path, atime, mtime)
-      inode = path_to_inode(path)
+      inode = @volume.inode_fetch(path_to_inode_number(path))
       inode.atime = atime
       inode.mtime = mtime
       inode.write
     end
 
     def truncate(ctx, path, offset)
-      inode = path_to_inode(path)
+      inode = @volume.inode_fetch(path_to_inode_number(path))
       inode.size = offset
       inode.write
     end
@@ -106,7 +106,7 @@ module MortimerFs
     #end
 
     def open(ctx, path, ffi)
-      inode = path_to_inode(path)
+      inode = @volume.inode_fetch(path_to_inode_number(path))
       raise Errno::EISDIR if inode.type == :directory
 
       ffi.fh = File.new(@volume, inode, flags: ffi.flags)
@@ -140,15 +140,15 @@ module MortimerFs
 
     protected
 
-    def path_to_inode(path)
-      inode = @volume.inode_fetch(@volume.root_inode_number)
+    def path_to_inode_number(path)
+      inode_number = @volume.root_inode_number
       path.split('/').each do |segment|
         next if segment == ''
-        inode = Directory.open(@volume, inode) {|dir| dir.find_inode_for(segment) }
+        inode_number = @volume.directory_open(inode_number) {|dir| dir.find_inode_number_for(segment) }
       end
-      inode
+      inode_number
     ensure
-      puts ">>> path_to_inode(#{path}) => #{inode}"
+      puts ">>> path_to_inode_number(#{path}) => #{inode_number}"
     end
 
   end
