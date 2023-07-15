@@ -30,7 +30,7 @@ module MortimerFs
           offset += DIR_ENTRY_SIZE
           next if (entry_fields[2] & FLAG_DELETED) != 0
 
-          yield [entry_fields.last, @volume.inode_fetch(entry_fields[1])]
+          yield [entry_fields.last, entry_fields[1]]
         end
         self
       end

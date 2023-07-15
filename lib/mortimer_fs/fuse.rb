@@ -30,7 +30,10 @@ module MortimerFs
 
     def readdir(ctx, path, filler, offset, ffi)
       @volume.directory_open(path_to_inode_number(path)) do |dir|
-        dir.each {|name, inode| filler.push(name, RFuse::Stat.new(inode.mode, inode.mode, inode.stat_hash), 0) }
+        dir.each do |name, inode_number|
+          inode = @volume.inode_fetch(inode_number)
+          filler.push(name, RFuse::Stat.new(inode.mode, inode.mode, inode.stat_hash), 0)
+        end
       end
     end
 
